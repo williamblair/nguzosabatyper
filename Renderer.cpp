@@ -16,11 +16,15 @@ Renderer::~Renderer()
     if (mWindow != nullptr) {
         SDL_DestroyWindow(mWindow);
     }
+    IMG_Quit();
+    Mix_CloseAudio();
+    Mix_Quit();
+    SDL_Quit();
 }
 
 void Renderer::Init(const char* title, int width, int height)
 {
-    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0) {
         std::cerr << __FILE__ << ": " << __LINE__ << ": "
             << "Failed to init SDL: " << SDL_GetError() << std::endl;
         throw std::runtime_error(SDL_GetError());
@@ -32,6 +36,15 @@ void Renderer::Init(const char* title, int width, int height)
                 << "Failed to init IMG: " << IMG_GetError()
                 << std::endl;
             throw std::runtime_error(IMG_GetError());
+        }
+    }
+    {
+        int flags = MIX_INIT_OGG | MIX_INIT_MOD;
+        if ((Mix_Init(flags) & flags) != flags) {
+            std::cerr << __FILE__ << ": " << __LINE__ << ": "
+                << "Failed to init Mix: " << Mix_GetError()
+                << std::endl;
+            throw std::runtime_error(Mix_GetError());
         }
     }
     
@@ -54,6 +67,12 @@ void Renderer::Init(const char* title, int width, int height)
             << "Failed to create renderer: " << SDL_GetError()
             << std::endl;
         throw std::runtime_error(SDL_GetError());
+    }
+    
+    if (Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, 2, 1024) == -1) {
+        std::cerr << __FILE__ << ": " << __LINE__ << ": "
+            << "Failed to open audio: " << Mix_GetError() << std::endl;
+        throw std::runtime_error(Mix_GetError());
     }
 }
 

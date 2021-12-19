@@ -1,6 +1,7 @@
 #include <Renderer.h>
 #include <Input.h>
 #include <Texture.h>
+#include <Music.h>
 
 #ifdef __WIN32
 #undef main
@@ -12,10 +13,15 @@ int main(int argc, char **argv)
     Renderer render;
     Input input;
     Texture texture;
+    Music music;
     try
     {
         render.Init("PDubs Holiday Jam 2021", 640, 480);
         texture.Init("assets/kwanzaCandle.jpg", render);
+        
+        music.Init("assets/caravan.ogg");
+        music.Play(true);
+        
         while (!input.Quit())
         {
             render.Clear();
