@@ -2,6 +2,7 @@
 #include <Input.h>
 #include <Texture.h>
 #include <Music.h>
+#include <SoundEffect.h>
 
 #ifdef __WIN32
 #undef main
@@ -14,6 +15,8 @@ int main(int argc, char **argv)
     Input input;
     Texture texture;
     Music music;
+    SoundEffect effect;
+    
     try
     {
         render.Init("PDubs Holiday Jam 2021", 640, 480);
@@ -22,10 +25,16 @@ int main(int argc, char **argv)
         music.Init("assets/caravan.ogg");
         music.Play(true);
         
+        effect.Init("assets/load.wav");
+        
         while (!input.Quit())
         {
             render.Clear();
             texture.Draw(render, 0,0);
+            
+            if (input.Confirm()) {
+                effect.Play();
+            }
             
             input.Update();
             render.Update();

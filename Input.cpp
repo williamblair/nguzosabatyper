@@ -1,7 +1,8 @@
 #include <Input.h>
 
 Input::Input() :
-    mQuit(false)
+    mQuit(false),
+    mConfirm(false)
 {
 }
 Input::~Input()
@@ -11,6 +12,7 @@ Input::~Input()
 void Input::Update()
 {
     SDL_Event e;
+    mConfirm = false;
     while (SDL_PollEvent(&e))
     {
         switch (e.type)
@@ -18,6 +20,15 @@ void Input::Update()
         case SDL_QUIT:
             mQuit = true;
             break;
+        case SDL_KEYUP:
+            switch (e.key.keysym.sym)
+            {
+            case SDLK_RETURN:
+                mConfirm = true;
+                break;
+            default:
+                break;
+            }
         default:
             break;
         }

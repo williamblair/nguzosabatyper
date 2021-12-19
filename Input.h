@@ -12,9 +12,11 @@ public:
     void Update();
 
     inline bool Quit() { return mQuit; }
+    inline bool Confirm() { return mConfirm; }
 
 private:
     bool mQuit;
+    bool mConfirm;
 };
 
 #endif // INPUT_H_INCLUDED
