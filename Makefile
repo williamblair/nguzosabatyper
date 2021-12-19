@@ -9,7 +9,8 @@ SOURCES = main.cpp \
           Input.cpp \
           Texture.cpp \
           Music.cpp \
-          SoundEffect.cpp
+          SoundEffect.cpp \
+          Font.cpp
 
 all:
 	$(CC) $(CFLAGS) $(SOURCES) -o $(TARGET) $(INCDIRS) $(LIBDIRS) $(LIBS)

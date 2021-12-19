@@ -24,6 +24,9 @@ public:
         mDrawHeight = h;
     }
     
+    inline int GetWidth() { return mWidth; }
+    inline int GetHeight() { return mHeight; }
+    
 private:
     SDL_Surface* mSurface;
     SDL_Texture* mTexture;

@@ -24,7 +24,7 @@ Renderer::~Renderer()
 
 void Renderer::Init(const char* title, int width, int height)
 {
-    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO) < 0) {
+    if (SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_TIMER) < 0) {
         std::cerr << __FILE__ << ": " << __LINE__ << ": "
             << "Failed to init SDL: " << SDL_GetError() << std::endl;
         throw std::runtime_error(SDL_GetError());
@@ -78,7 +78,7 @@ void Renderer::Init(const char* title, int width, int height)
 
 void Renderer::Clear()
 {
-    
+    SDL_RenderClear(mRender);
 }
 
 void Renderer::Update()

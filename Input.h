@@ -13,10 +13,12 @@ public:
 
     inline bool Quit() { return mQuit; }
     inline bool Confirm() { return mConfirm; }
+    inline char CharEntered() { return mCharEntered; }
 
 private:
     bool mQuit;
     bool mConfirm;
+    char mCharEntered;
 };
 
 #endif // INPUT_H_INCLUDED
