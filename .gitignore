@@ -1,0 +1,4 @@
+*.txt
+*.dll
+sdl2-config
+*.exe
