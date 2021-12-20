@@ -82,6 +82,59 @@ inline std::string GetRandomTargetString()
     return SymbolStrings[index];
 }
 
+class LifeBar
+{
+public:
+    LifeBar(int x, int y, int width, int height, int health) :
+        mX(x),
+        mY(y),
+        mWidth(width),
+        mHeight(height),
+        mCurHealth(health),
+        mTotalHealth(health)
+    {}
+    
+    void Draw(Renderer& render)
+    {
+        int lifeWidth = (int)((float)mWidth * 
+            (float)mCurHealth / (float)mTotalHealth);
+        int remainWidth = mWidth - lifeWidth;
+
+        /* Draw green current life */
+        render.DrawRect(mX, mY, lifeWidth, mHeight, 0,255,0,255);
+        if (mCurHealth != mTotalHealth) {
+            /* Draw red missing life */
+            render.DrawRect(
+                mX+lifeWidth, mY,
+                remainWidth, mHeight,
+                255,0,0,255
+            );
+        }
+    }
+    
+    inline int GetHealth() const { return mCurHealth; }
+    
+    /* Returns true if health is now at or below zero after updating */
+    bool AddHealth(int health) { 
+        mCurHealth += health;
+        if (mCurHealth > mTotalHealth) {
+            mCurHealth = mTotalHealth;
+        }
+        else if (mCurHealth <= 0) {
+            return true;
+        }
+        return false;
+    }
+    
+private:
+    int mX;
+    int mY;
+    int mWidth;
+    int mHeight;
+    int mCurHealth;
+    int mTotalHealth;
+};
+
 struct SymbolPiece
 {
     std::string name;
@@ -97,6 +150,7 @@ void TypingGameLoop()
     char curUserStr[maxUserStrLen+1];
     char userScoreStr[50];
     std::string scoreText = "SCORE:";
+    std::string lifeText = "LIFE:";
     int userStrIndex = 0;
     float pieceSpeed = 20.0f;
     float pieceAddTimer = 6.0f; // seconds until new piece added
@@ -106,9 +160,21 @@ void TypingGameLoop()
     uint64_t userScore = 0;
     size_t userLife = 100;
     size_t level = 1;
+    const int lifeBarWidth = 100;
+    const int lifeBarHeight = 10;
+    const int startingHealth = 100;
+    const int lifeBarX = greenClothTex.GetWidth()-lifeBarWidth-10;
+    const int lifeBarY = S_HEIGHT - 50;
     
     memset(curUserStr, 0, sizeof(curUserStr));
     sprintf(userScoreStr, "%llu", userScore);
+    
+    
+    LifeBar lifeBar(
+        lifeBarX, lifeBarY,
+        lifeBarWidth, lifeBarHeight,
+        startingHealth
+    );
     
 #define AddNewPiece()                                                       \
     {                                                                       \
@@ -156,7 +222,12 @@ void TypingGameLoop()
             if (piece->y + piece->symbolTex->GetHeight() >= S_HEIGHT - 100) {
                 std::cout << "Add piece to remove queue w id: " << piece->id << std::endl;
                 pieceRemoveQueue.push(piece->id);
-                // TODO - subtract from user health
+                
+                /* Returns true if health reached zero... */
+                if (lifeBar.AddHealth(-piece->name.size())) {
+                    std::cout << "Ran out of health; game over" << std::endl;
+                    quit = true;
+                }
             }
         }
         
@@ -174,7 +245,16 @@ void TypingGameLoop()
             S_HEIGHT - 50,
             userScoreStr
         );
+        /* Lifebar */
+        font.Draw(
+            render,
+            lifeBarX - (lifeText.size()+1)*font.GetCharWidth(),
+            lifeBarY,
+            lifeText.c_str()
+        );
+        lifeBar.Draw(render);
         
+        /* User enter press */
         if (input.Confirm()) {
             curUserStr[userStrIndex] = '\0';
             std::cout << "User str was: " << curUserStr << std::endl;
@@ -202,12 +282,14 @@ void TypingGameLoop()
             memset(curUserStr, 0, sizeof(curUserStr));
             userStrIndex = 0;
         }
+        /* User character press */
         if ((int)input.CharEntered() != 0 &&
             userStrIndex < maxUserStrLen)
         {
             curUserStr[userStrIndex++] = input.CharEntered();
             textEntryEffect.Play();
         }
+        /* User backspace press */
         if (input.BackSpace())
         {
             if (userStrIndex > 0) {
@@ -235,8 +317,25 @@ void TypingGameLoop()
             pieceAddTimer = 6.0f;
         }
         
-        quit = input.Quit();
+        quit |= input.Quit();
         input.Update();
+        render.Update();
+    }
+}
+
+void GameOverLoop()
+{
+    // TODO
+    bool quit = false;
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        render.Clear();
+        
+        if (input.Quit()) { quit = true; }
+        
         render.Update();
     }
 }
@@ -266,6 +365,9 @@ int main(int argc, char **argv)
         {
             /* Gameplay loop */
             TypingGameLoop();
+            if (input.Quit()) { break; }
+            GameOverLoop();
+            if (input.Quit()) { break; }
         }
     }
     catch (std::runtime_error& e)

@@ -17,6 +17,15 @@ public:
     
     void Init(const char* title, int width, int height);
     
+    void DrawRect(
+        int x, int y,
+        int width, int height,
+        unsigned char r,
+        unsigned char g,
+        unsigned char b,
+        unsigned char a
+    );
+    
     void Clear();
     void Update();
     
