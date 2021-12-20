@@ -5,7 +5,8 @@
 Input::Input() :
     mQuit(false),
     mConfirm(false),
-    mCharEntered((char)0)
+    mCharEntered((char)0),
+    mBackSpace(false)
 {
 }
 Input::~Input()
@@ -46,6 +47,7 @@ void Input::Update()
     SDL_Event e;
     mConfirm = false;
     mCharEntered = (char)0;
+    mBackSpace = false;
     while (SDL_PollEvent(&e))
     {
         switch (e.type)
@@ -64,6 +66,9 @@ void Input::Update()
             {
             case SDLK_RETURN:
                 mConfirm = true;
+                break;
+            case SDLK_BACKSPACE:
+                mBackSpace = true;
                 break;
             default:
                 break;

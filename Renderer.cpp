@@ -4,7 +4,8 @@ Renderer::Renderer() :
     mWindow(nullptr),
     mRender(nullptr),
     mWidth(0),
-    mHeight(0)
+    mHeight(0),
+    mLastTicks(0)
 {
 }
 
@@ -84,4 +85,14 @@ void Renderer::Clear()
 void Renderer::Update()
 {
     SDL_RenderPresent(mRender);
+    
+    Uint32 curTicks = SDL_GetTicks();
+    Uint32 dtMilli = curTicks - mLastTicks;
+    /* Desired time of 1 frame */
+    const Uint32 desiredTicks = (Uint32)(1000.0f / 60.0f);
+    if (dtMilli < desiredTicks)
+    {
+        SDL_Delay(desiredTicks - dtMilli);
+    }
+    mLastTicks = curTicks;
 }

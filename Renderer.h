@@ -25,6 +25,7 @@ private:
     SDL_Renderer* mRender;
     int mWidth;
     int mHeight;
+    Uint32 mLastTicks;
 };
 
 #endif // RENDERER_H_INCLUDED
