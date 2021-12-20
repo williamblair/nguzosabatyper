@@ -31,7 +31,9 @@ static Texture kwanzaPatternBG;
 static Texture symbolKeyTex;
 static Texture greenClothTex;
 static Music music;
-static SoundEffect effect;
+static SoundEffect badEntryEffect;
+static SoundEffect goodEntryEffect;
+static SoundEffect textEntryEffect;
 static GameTimer timer;
 static Font font;
 
@@ -93,17 +95,20 @@ void TypingGameLoop()
 {
     static const int maxUserStrLen = 15;
     char curUserStr[maxUserStrLen+1];
+    char userScoreStr[50];
+    std::string scoreText = "SCORE:";
     int userStrIndex = 0;
-    float pieceSpeed = 15.0f;
+    float pieceSpeed = 20.0f;
     float pieceAddTimer = 6.0f; // seconds until new piece added
     uint64_t pieceIdCtr = 0;
     std::list<SymbolPiece> pieces;
     std::queue<uint64_t> pieceRemoveQueue;
-    size_t userScore = 0;
+    uint64_t userScore = 0;
     size_t userLife = 100;
+    size_t level = 1;
     
     memset(curUserStr, 0, sizeof(curUserStr));
-    
+    sprintf(userScoreStr, "%llu", userScore);
     
 #define AddNewPiece()                                                       \
     {                                                                       \
@@ -161,22 +166,38 @@ void TypingGameLoop()
         if (userStrIndex > 0) {
             font.Draw(render, 10, S_HEIGHT - 20, curUserStr);
         }
+        /* User score */
+        font.Draw(render, 10, S_HEIGHT - 50, scoreText.c_str());
+        font.Draw(
+            render,
+            10 + (scoreText.size()+2)*font.GetCharWidth(),
+            S_HEIGHT - 50,
+            userScoreStr
+        );
         
         if (input.Confirm()) {
             curUserStr[userStrIndex] = '\0';
             std::cout << "User str was: " << curUserStr << std::endl;
+            bool foundMatch = false;
             for (auto piece = pieces.begin(); piece != pieces.end(); ++piece)
             {
                 if (std::string(curUserStr) == piece->name) {
                     std::cout << "Input matches!" << std::endl;
                     userScore += piece->name.size();
+                    sprintf(userScoreStr, "%llu", userScore);
                     std::cout << "New Score: " << userScore << std::endl;
                     pieceRemoveQueue.push(piece->id);
+                    foundMatch = true;
                     break;
                 }
-                else {
-                    std::cout << "User input not match!" << std::endl;
-                }
+            }
+            if (!foundMatch) {
+                // TODO - flash screen or text or something
+                badEntryEffect.Play();
+            }
+            else {
+                // TODO - some other good indication
+                goodEntryEffect.Play();
             }
             memset(curUserStr, 0, sizeof(curUserStr));
             userStrIndex = 0;
@@ -185,6 +206,7 @@ void TypingGameLoop()
             userStrIndex < maxUserStrLen)
         {
             curUserStr[userStrIndex++] = input.CharEntered();
+            textEntryEffect.Play();
         }
         if (input.BackSpace())
         {
@@ -231,11 +253,12 @@ int main(int argc, char **argv)
         symbolKeyTex.Init("assets/symbolkey_gimp.png", render);
         greenClothTex.Init("assets/greenclothtexture.jpg", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render); 
-        
         music.Init("assets/caravan.ogg");
         music.Play(true);
         
-        effect.Init("assets/load.wav");
+        badEntryEffect.Init("assets/badentry.wav");
+        goodEntryEffect.Init("assets/goodentry.wav");
+        textEntryEffect.Init("assets/congahit.wav");
         
         InitSymbols();
         

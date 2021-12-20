@@ -26,6 +26,6 @@ void SoundEffect::Play()
         std::cerr << __FILE__ << ": " << __LINE__ << ": "
             << "failed to play sound effect: " << Mix_GetError()
             << std::endl;
-        throw std::runtime_error(Mix_GetError());
+        //throw std::runtime_error(Mix_GetError());
     }
 }
