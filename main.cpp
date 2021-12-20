@@ -34,6 +34,7 @@ static Music music;
 static SoundEffect badEntryEffect;
 static SoundEffect goodEntryEffect;
 static SoundEffect textEntryEffect;
+static SoundEffect loseLifeEffect;
 static GameTimer timer;
 static Font font;
 
@@ -222,6 +223,7 @@ void TypingGameLoop()
             if (piece->y + piece->symbolTex->GetHeight() >= S_HEIGHT - 100) {
                 std::cout << "Add piece to remove queue w id: " << piece->id << std::endl;
                 pieceRemoveQueue.push(piece->id);
+                loseLifeEffect.Play();
                 
                 /* Returns true if health reached zero... */
                 if (lifeBar.AddHealth(-piece->name.size())) {
@@ -352,12 +354,13 @@ int main(int argc, char **argv)
         symbolKeyTex.Init("assets/symbolkey_gimp.png", render);
         greenClothTex.Init("assets/greenclothtexture.jpg", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render); 
-        music.Init("assets/caravan.ogg");
+        music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
         music.Play(true);
         
         badEntryEffect.Init("assets/badentry.wav");
         goodEntryEffect.Init("assets/goodentry.wav");
         textEntryEffect.Init("assets/congahit.wav");
+        loseLifeEffect.Init("assets/djembedrum.wav");
         
         InitSymbols();
         
