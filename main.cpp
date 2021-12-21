@@ -15,6 +15,7 @@
 #include <SoundEffect.h>
 #include <GameTimer.h>
 #include <Font.h>
+#include <cmath>
 
 /* MinGW SDL compile error thing */
 #ifdef __WIN32
@@ -30,6 +31,9 @@ static Texture texture;
 static Texture kwanzaPatternBG;
 static Texture symbolKeyTex;
 static Texture greenClothTex;
+static Texture kwanzaCandlesTex;
+static Texture titleTex;
+static Texture titleBackgroundTex;
 static Music music;
 static SoundEffect badEntryEffect;
 static SoundEffect goodEntryEffect;
@@ -342,6 +346,76 @@ void GameOverLoop()
     }
 }
 
+void TitleScreenLoop()
+{
+    #define NUM_TITLE_RECTS 9
+    static SDL_Rect titleClipRects[NUM_TITLE_RECTS];
+    static SDL_Rect titleDrawRects[NUM_TITLE_RECTS];
+    static float titleAnimTimes[NUM_TITLE_RECTS];
+    bool quit = false;
+    /* Center on screen */
+    int candlesX = (S_WIDTH/2) - (kwanzaCandlesTex.GetWidth()/2);
+    int candlesY = (S_HEIGHT/2) - (kwanzaCandlesTex.GetHeight()/2);
+    
+    /* Init title text drawing positions */
+    titleClipRects[0] = {0,0,64,88}; // N
+    titleDrawRects[0] = {165,100,64,88};
+    titleClipRects[1] = {64,0,48,88}; // g
+    titleDrawRects[1] = {224,100,48,88};
+    titleClipRects[2] = {112,0,50,88}; // u
+    titleDrawRects[2] = {269,100,50,88};
+    titleClipRects[3] = {163,0,40,88}; // z
+    titleDrawRects[3] = {320,100,40,88};
+    titleClipRects[4] = {204,0,48,88}; // o
+    titleDrawRects[4] = {362,100,48,88};
+    titleClipRects[5] = {274,0,48,88}; // S
+    titleDrawRects[5] = {432,100,48,88};
+    titleClipRects[6] = {323,0,46,88}; // a
+    titleDrawRects[6] = {481,100,46,88};
+    titleClipRects[7] = {368,0,48,88}; // b
+    titleDrawRects[7] = {525,100,48,88};
+    titleClipRects[8] = {417,0,48,88}; // a
+    titleDrawRects[8] = {575,100,48,88};
+    /* Init animation times */
+    float animTime = 0.0f;
+    const float titleAnimSpeed = 5.0f;
+    for (int i=0; i<NUM_TITLE_RECTS; ++i)
+    {
+        titleAnimTimes[i] = animTime;
+        animTime += 0.5f;
+    }
+    
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        render.Clear();
+        
+        /* Background */
+        titleBackgroundTex.Draw(render, 0,0);
+        
+        /* Kwanza Candles */ 
+        kwanzaCandlesTex.Draw(render, candlesX, candlesY);
+        
+        /* Title Text */
+        for (int i=0; i<NUM_TITLE_RECTS; ++i)
+        {
+            SDL_Rect* clip = &titleClipRects[i];
+            SDL_Rect* draw = &titleDrawRects[i];
+            int drawY = draw->y + (sin(titleAnimTimes[i])*10.0f);
+            titleAnimTimes[i] += dt * titleAnimSpeed;
+            titleTex.SetUVWH(clip->x, clip->y, clip->w, clip->h);
+            titleTex.Draw(render, draw->x, drawY);
+        }
+        
+        if (input.Quit()) { quit = true; }
+        // TODO - other menu selection stuff probably
+        if (input.Confirm()) { quit = true; }
+        render.Update();
+    }
+}
+
 /* 7 principles of kwanza is the theme (nguzo saba) */
 int main(int argc, char **argv)
 {
@@ -353,9 +427,12 @@ int main(int argc, char **argv)
         kwanzaPatternBG.Init("assets/kwanzaPattern.jpeg", render);
         symbolKeyTex.Init("assets/symbolkey_gimp.png", render);
         greenClothTex.Init("assets/greenclothtexture.jpg", render);
+        kwanzaCandlesTex.Init("assets/kwanzacandles.png", render);
+        titleTex.Init("assets/titleText.png", render);
+        titleBackgroundTex.Init("assets/africaBackground.jpg", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render); 
-        music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
-        music.Play(true);
+        //music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
+        //music.Play(true);
         
         badEntryEffect.Init("assets/badentry.wav");
         goodEntryEffect.Init("assets/goodentry.wav");
@@ -366,7 +443,8 @@ int main(int argc, char **argv)
         
         while (!input.Quit())
         {
-            /* Gameplay loop */
+            TitleScreenLoop();
+            if (input.Quit()) { break; }
             TypingGameLoop();
             if (input.Quit()) { break; }
             GameOverLoop();
