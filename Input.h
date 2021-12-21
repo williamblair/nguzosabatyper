@@ -17,6 +17,8 @@ public:
     inline char BackSpace() { return mBackSpace; }
     inline bool Up() { return mUp; }
     inline bool Down() { return mDown; }
+    inline bool UpHeld() { return mUpHeld; }
+    inline bool DownHeld() { return mDownHeld; }
 
 private:
     bool mQuit;
@@ -25,6 +27,8 @@ private:
     bool mBackSpace;
     bool mUp;
     bool mDown;
+    bool mUpHeld;
+    bool mDownHeld;
 };
 
 #endif // INPUT_H_INCLUDED

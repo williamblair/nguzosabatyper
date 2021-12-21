@@ -35,6 +35,7 @@ static Texture kwanzaCandlesTex;
 static Texture titleTex;
 static Texture titleBackgroundTex;
 static Texture selectionIconTex;
+static Texture descriptionTex;
 static Music music;
 static SoundEffect badEntryEffect;
 static SoundEffect goodEntryEffect;
@@ -355,6 +356,7 @@ public:
     constexpr static int SELECT_DIRECTIONS = 0;
     constexpr static int SELECT_PLAY = 1;
     constexpr static int SELECT_ABOUT = 2;
+    constexpr static int SELECT_EXIT = 3;
 
     TitleMenu(int y, Font* font) :
         mY(y),
@@ -367,11 +369,11 @@ public:
     {
         if (input.Up()) {
             mSelection--;
-            if (mSelection < 0) { mSelection = SELECT_ABOUT; }
+            if (mSelection < 0) { mSelection = SELECT_EXIT; }
         }
         else if (input.Down()) {
             mSelection++;
-            if (mSelection > SELECT_ABOUT) { 
+            if (mSelection > SELECT_EXIT) { 
                 mSelection = SELECT_DIRECTIONS;
             }
         }
@@ -386,12 +388,13 @@ public:
     void Draw()
     {
         int curY = mY;
-        static std::string menuTexts[SELECT_ABOUT+1] = {
+        static std::string menuTexts[SELECT_EXIT+1] = {
             "DIRECTIONS",
             "PLAY",
-            "ABOUT"
+            "ABOUT",
+            "EXIT"
         };
-        for (int i=SELECT_DIRECTIONS; i<=SELECT_ABOUT; ++i)
+        for (int i = SELECT_DIRECTIONS; i <= SELECT_EXIT; ++i)
         {
             std::string& msg = menuTexts[i];
             int drawX = S_WIDTH/2 - (msg.size()*mFont->GetCharWidth())/2;
@@ -560,14 +563,35 @@ void DirectionsLoop()
 void AboutLoop()
 {
     bool quit = false;
+    int texWidth = descriptionTex.GetWidth();
+    int totalTexHeight = descriptionTex.GetHeight();
+    int texHeight = S_HEIGHT - 100;
+    int texX = 25;
+    int texY = 50;
+    float texScrollY = 0;
+    float scrollSpeed = 50.0f;
     while (!quit)
     {
         float dt = timer.Update();
         input.Update();
+        if (input.UpHeld() && texScrollY > 0) {
+            texScrollY -= scrollSpeed * dt;
+            if (texScrollY < 0.0f) { texScrollY = 0.0f; }
+        }
+        else if (input.DownHeld() &&
+            texScrollY < totalTexHeight - texHeight)
+        {
+            texScrollY += scrollSpeed * dt;
+            if (texScrollY > totalTexHeight - texHeight) {
+                texScrollY = totalTexHeight - texHeight;
+            }
+        }
         
         render.Clear();
         
         titleBackgroundTex.Draw(render, 0,0);
+        descriptionTex.SetUVWH(0,(int)texScrollY,texWidth,texHeight);
+        descriptionTex.Draw(render, texX, texY);
         
         render.Update();
         
@@ -591,6 +615,7 @@ int main(int argc, char **argv)
         titleTex.Init("assets/titleText.png", render);
         titleBackgroundTex.Init("assets/africaBackground.jpg", render);
         selectionIconTex.Init("assets/africanmaskScaled.png", render);
+        descriptionTex.Init("assets/principlesDescription.png", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render);
         titleFont.Init("assets/TrioDX.png", 9, 17, render);
         //music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
@@ -603,7 +628,8 @@ int main(int argc, char **argv)
         
         InitSymbols();
         
-        while (!input.Quit())
+        bool quit = false;
+        while (!input.Quit() && !quit)
         {
             int menuSelect = TitleScreenLoop();
             if (input.Quit()) { break; }
@@ -624,6 +650,11 @@ int main(int argc, char **argv)
             case TitleMenu::SELECT_ABOUT:
             {
                 AboutLoop();
+                break;
+            }
+            case TitleMenu::SELECT_EXIT:
+            {
+                quit = true;
                 break;
             }
             default:

@@ -8,7 +8,9 @@ Input::Input() :
     mCharEntered((char)0),
     mBackSpace(false),
     mUp(false),
-    mDown(false)
+    mDown(false),
+    mUpHeld(false),
+    mDownHeld(false)
 {
 }
 Input::~Input()
@@ -76,9 +78,24 @@ void Input::Update()
                 break;
             case SDLK_UP:
                 mUp = true;
+                mUpHeld = false;
                 break;
             case SDLK_DOWN:
                 mDown = true;
+                mDownHeld = false;
+                break;
+            default:
+                break;
+            }
+            break;
+        case SDL_KEYDOWN:
+            switch (e.key.keysym.sym)
+            {
+            case SDLK_UP:
+                mUpHeld = true;
+                break;
+            case SDLK_DOWN:
+                mDownHeld = true;
                 break;
             default:
                 break;
