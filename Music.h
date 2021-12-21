@@ -13,6 +13,7 @@ public:
     void Init(const char* fileName);
     
     void Play(const bool loop);
+    inline void Stop() { Mix_HaltMusic(); }
     
 private:
     Mix_Music* mMusic;

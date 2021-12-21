@@ -12,7 +12,7 @@ public:
     
     void Init(const char* fileName);
     
-    void Play();
+    void Play(int channel = -1);
 
 private:
     Mix_Chunk* mChunk;

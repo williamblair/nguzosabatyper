@@ -20,9 +20,9 @@ void SoundEffect::Init(const char* fileName)
     }
 }
 
-void SoundEffect::Play()
+void SoundEffect::Play(int channel)
 {
-    if (Mix_PlayChannel(-1, mChunk, 0) == -1) {
+    if (Mix_PlayChannel(channel, mChunk, 0) == -1) {
         std::cerr << __FILE__ << ": " << __LINE__ << ": "
             << "failed to play sound effect: " << Mix_GetError()
             << std::endl;

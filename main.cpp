@@ -37,10 +37,12 @@ static Texture titleBackgroundTex;
 static Texture selectionIconTex;
 static Texture descriptionTex;
 static Music music;
+static Music titleMusic;
 static SoundEffect badEntryEffect;
 static SoundEffect goodEntryEffect;
 static SoundEffect textEntryEffect;
 static SoundEffect loseLifeEffect;
+static SoundEffect menuSelectEffect;
 static GameTimer timer;
 static Font font;
 static Font titleFont;
@@ -49,6 +51,10 @@ static Font titleFont;
 static Texture Symbols[NUM_SYMBOLS];
 static std::unordered_map<std::string, Texture*> SymbolsMap;
 static std::vector<std::string> SymbolStrings;
+
+/* Reserved channel for playing repetitive sound effects
+ * so they don't use up all of the remaining channels */
+#define EFFECT_PLAY_CHANNEL 0
 
 void InitSymbols()
 {
@@ -177,7 +183,6 @@ void TypingGameLoop()
     memset(curUserStr, 0, sizeof(curUserStr));
     sprintf(userScoreStr, "%llu", userScore);
     
-    
     LifeBar lifeBar(
         lifeBarX, lifeBarY,
         lifeBarWidth, lifeBarHeight,
@@ -296,7 +301,7 @@ void TypingGameLoop()
             userStrIndex < maxUserStrLen)
         {
             curUserStr[userStrIndex++] = input.CharEntered();
-            textEntryEffect.Play();
+            textEntryEffect.Play(EFFECT_PLAY_CHANNEL);
         }
         /* User backspace press */
         if (input.BackSpace())
@@ -370,12 +375,14 @@ public:
         if (input.Up()) {
             mSelection--;
             if (mSelection < 0) { mSelection = SELECT_EXIT; }
+            menuSelectEffect.Play(EFFECT_PLAY_CHANNEL);
         }
         else if (input.Down()) {
             mSelection++;
             if (mSelection > SELECT_EXIT) { 
                 mSelection = SELECT_DIRECTIONS;
             }
+            menuSelectEffect.Play(EFFECT_PLAY_CHANNEL);
         }
         /* User selected a menu entry, return which selection */
         else if (input.Confirm()) {
@@ -425,6 +432,8 @@ int TitleScreenLoop()
 {
     static const char* jamText = "PDUBS HOLIDAY JAM 2021";
     static const char* authorText = "BJ BLAIR";
+    static const char* directionText =
+        "USE KEYBOARD UP, DOWN TO NAVIGATE MENU. PRESS ENTER TO SELECT.";
     static const int jamTextX = 10;
     static const int jamTextY = 580;
     static const int authorTextX = 300;
@@ -434,6 +443,9 @@ int TitleScreenLoop()
     static SDL_Rect titleDrawRects[NUM_TITLE_RECTS];
     static float titleAnimTimes[NUM_TITLE_RECTS];
     bool quit = false;
+    float directionTextX = S_WIDTH - 
+        titleFont.GetCharWidth()*strlen(directionText);
+    float directionTextSpeed = 40.0f;
     /* Center on screen */
     int candlesX = (S_WIDTH/2) - (kwanzaCandlesTex.GetWidth()/2);
     int candlesY = (S_HEIGHT/2) - (kwanzaCandlesTex.GetHeight()/2);
@@ -495,6 +507,9 @@ int TitleScreenLoop()
         /* Menu Text */
         menu.Draw();
         
+        /* Top directions text */
+        titleFont.Draw(render, (int)directionTextX, 5, directionText);
+        
         /* Footnotes text */
         titleFont.Draw(render, jamTextX, jamTextY, jamText);
         titleFont.Draw(render, authorTextX, authorTextY, authorText);
@@ -506,6 +521,13 @@ int TitleScreenLoop()
         if (menuSelect != -1) {
             std::cout << "Menu Select: " << menuSelect << std::endl;
             return menuSelect;
+        }
+        /* Scroll top directions */
+        directionTextX -= directionTextSpeed * dt;
+        if (directionTextX < 
+            (-((int)titleFont.GetCharWidth()*(int)strlen(directionText))))
+        {
+            directionTextX = S_WIDTH;
         }
         
         render.Update();
@@ -519,15 +541,16 @@ void DirectionsLoop()
 {
     std::vector<std::string> textLines = {
         "TYPE THE NAMES OF THE SYMBOLS AS THEY APPEAR ON SCREEN",
+        "YOU CAN PRESS BACKSPACE TO DELETE CHARACTERS",
         "ONCE YOU ARE DONE TYPING, PRESS ENTER TO SUBMIT",
         "",
-        "YOU WILL LOSE HP IF A SYMBOL REACHES THE GROUND.",
+        "YOU WILL LOSE HP IF A SYMBOL REACHES THE GROUND",
         "ONCE YOUR HP REACHES ZERO, THE GAME IS OVER!",
         "",
         "PRESS ENTER TO RETURN TO THE TITLE"
     };
-    int finalTextY = 75;
-    int textX = 100;
+    int finalTextY = 150;
+    int textX = 125;
     float textY = 400;
     float scrollSpeed = 20.0f;
     bool quit = false;
@@ -618,19 +641,23 @@ int main(int argc, char **argv)
         descriptionTex.Init("assets/principlesDescription.png", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render);
         titleFont.Init("assets/TrioDX.png", 9, 17, render);
-        //music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
-        //music.Play(true);
+        music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
+        titleMusic.Init("assets/135811__reinsamba__110611-005-chora-harp-from-gambia.wav");
+        titleMusic.Play(true);
+        
         
         badEntryEffect.Init("assets/badentry.wav");
         goodEntryEffect.Init("assets/goodentry.wav");
         textEntryEffect.Init("assets/congahit.wav");
         loseLifeEffect.Init("assets/djembedrum.wav");
+        menuSelectEffect.Init("assets/menuselect.wav");
         
         InitSymbols();
         
         bool quit = false;
         while (!input.Quit() && !quit)
         {
+            
             int menuSelect = TitleScreenLoop();
             if (input.Quit()) { break; }
             
@@ -643,8 +670,12 @@ int main(int argc, char **argv)
             }
             case TitleMenu::SELECT_PLAY:
             {
+                titleMusic.Stop();
+                music.Play(true);
                 TypingGameLoop();
                 GameOverLoop();
+                music.Stop();
+                titleMusic.Play(true);
                 break;
             }
             case TitleMenu::SELECT_ABOUT:
