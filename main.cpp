@@ -514,6 +514,51 @@ int TitleScreenLoop()
 
 void DirectionsLoop()
 {
+    std::vector<std::string> textLines = {
+        "TYPE THE NAMES OF THE SYMBOLS AS THEY APPEAR ON SCREEN",
+        "ONCE YOU ARE DONE TYPING, PRESS ENTER TO SUBMIT",
+        "",
+        "YOU WILL LOSE HP IF A SYMBOL REACHES THE GROUND.",
+        "ONCE YOUR HP REACHES ZERO, THE GAME IS OVER!",
+        "",
+        "PRESS ENTER TO RETURN TO THE TITLE"
+    };
+    int finalTextY = 75;
+    int textX = 100;
+    float textY = 400;
+    float scrollSpeed = 20.0f;
+    bool quit = false;
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        if ((int)textY > finalTextY) {
+            textY -= scrollSpeed * dt;
+        }
+        
+        render.Clear();
+        
+        titleBackgroundTex.Draw(render, 0,0);
+        
+        int curY = (int)textY;
+        for (std::string& line : textLines)
+        {
+            if (line.size() > 0) {
+                titleFont.Draw(render, textX, curY, line.c_str());
+            }
+            curY += titleFont.GetCharHeight()+5;
+        }
+        
+        render.Update();
+        
+        if (input.Quit()) { quit = true; }
+        if (input.Confirm()) { quit = true; }
+    }
+}
+
+void AboutLoop()
+{
     bool quit = false;
     while (!quit)
     {
@@ -521,6 +566,9 @@ void DirectionsLoop()
         input.Update();
         
         render.Clear();
+        
+        titleBackgroundTex.Draw(render, 0,0);
+        
         render.Update();
         
         if (input.Quit()) { quit = true; }
@@ -575,6 +623,7 @@ int main(int argc, char **argv)
             }
             case TitleMenu::SELECT_ABOUT:
             {
+                AboutLoop();
                 break;
             }
             default:
