@@ -35,6 +35,11 @@ void Font::Draw( Renderer& render, int x, int y, const char* msg )
         if ( letter >= 'a' && letter <= 'z' ) {
             letter += 'A' - 'a';
         }
+        /* Skip if no need to draw anything */
+        if ( letter == ' ' ) {
+            x += mCharWidth;
+            continue;
+        }
 
         /* TODO - assumes starts at ! char; handle otherwise */
         int glyphIndex = letter - '!';

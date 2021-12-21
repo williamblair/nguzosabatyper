@@ -34,6 +34,7 @@ static Texture greenClothTex;
 static Texture kwanzaCandlesTex;
 static Texture titleTex;
 static Texture titleBackgroundTex;
+static Texture selectionIconTex;
 static Music music;
 static SoundEffect badEntryEffect;
 static SoundEffect goodEntryEffect;
@@ -41,6 +42,7 @@ static SoundEffect textEntryEffect;
 static SoundEffect loseLifeEffect;
 static GameTimer timer;
 static Font font;
+static Font titleFont;
 
 #define NUM_SYMBOLS 7
 static Texture Symbols[NUM_SYMBOLS];
@@ -346,8 +348,84 @@ void GameOverLoop()
     }
 }
 
-void TitleScreenLoop()
+class TitleMenu
 {
+public:
+
+    constexpr static int SELECT_DIRECTIONS = 0;
+    constexpr static int SELECT_PLAY = 1;
+    constexpr static int SELECT_ABOUT = 2;
+
+    TitleMenu(int y, Font* font) :
+        mY(y),
+        mFont(font),
+        mSelection(SELECT_DIRECTIONS)
+    {
+    }
+    
+    int Update()
+    {
+        if (input.Up()) {
+            mSelection--;
+            if (mSelection < 0) { mSelection = SELECT_ABOUT; }
+        }
+        else if (input.Down()) {
+            mSelection++;
+            if (mSelection > SELECT_ABOUT) { 
+                mSelection = SELECT_DIRECTIONS;
+            }
+        }
+        /* User selected a menu entry, return which selection */
+        else if (input.Confirm()) {
+            return mSelection;
+        }
+        /* No selection */
+        return -1;
+    }
+    
+    void Draw()
+    {
+        int curY = mY;
+        static std::string menuTexts[SELECT_ABOUT+1] = {
+            "DIRECTIONS",
+            "PLAY",
+            "ABOUT"
+        };
+        for (int i=SELECT_DIRECTIONS; i<=SELECT_ABOUT; ++i)
+        {
+            std::string& msg = menuTexts[i];
+            int drawX = S_WIDTH/2 - (msg.size()*mFont->GetCharWidth())/2;
+            mFont->Draw(render, drawX, curY, msg.c_str());
+            
+            /* Draw icon indicator to the left and right of the text */
+            if (i == mSelection)
+            {
+                int iconX = drawX - 50 - selectionIconTex.GetWidth();
+                int iconY = curY - (selectionIconTex.GetHeight()/2);
+                selectionIconTex.Draw(render, iconX, iconY);
+                iconX = drawX + (msg.size()*mFont->GetCharWidth()) + 50;
+                selectionIconTex.Draw(render, iconX, iconY);
+            }
+            
+            curY += mFont->GetCharHeight()+20;
+        }
+    }
+    
+private:
+    int mY;
+    Font* mFont;
+    int mSelection;
+};
+
+/* Returns the menu selection */
+int TitleScreenLoop()
+{
+    static const char* jamText = "PDUBS HOLIDAY JAM 2021";
+    static const char* authorText = "BJ BLAIR";
+    static const int jamTextX = 10;
+    static const int jamTextY = 580;
+    static const int authorTextX = 300;
+    static const int authorTextY = 580;
     #define NUM_TITLE_RECTS 9
     static SDL_Rect titleClipRects[NUM_TITLE_RECTS];
     static SDL_Rect titleDrawRects[NUM_TITLE_RECTS];
@@ -356,6 +434,8 @@ void TitleScreenLoop()
     /* Center on screen */
     int candlesX = (S_WIDTH/2) - (kwanzaCandlesTex.GetWidth()/2);
     int candlesY = (S_HEIGHT/2) - (kwanzaCandlesTex.GetHeight()/2);
+    
+    TitleMenu menu(375, &titleFont);
     
     /* Init title text drawing positions */
     titleClipRects[0] = {0,0,64,88}; // N
@@ -409,10 +489,42 @@ void TitleScreenLoop()
             titleTex.Draw(render, draw->x, drawY);
         }
         
+        /* Menu Text */
+        menu.Draw();
+        
+        /* Footnotes text */
+        titleFont.Draw(render, jamTextX, jamTextY, jamText);
+        titleFont.Draw(render, authorTextX, authorTextY, authorText);
+        
         if (input.Quit()) { quit = true; }
-        // TODO - other menu selection stuff probably
-        if (input.Confirm()) { quit = true; }
+        
+        /* User selection to exit title screen */
+        int menuSelect = menu.Update();
+        if (menuSelect != -1) {
+            std::cout << "Menu Select: " << menuSelect << std::endl;
+            return menuSelect;
+        }
+        
         render.Update();
+    }
+    
+    /* No menu select, user quit */
+    return -1;
+}
+
+void DirectionsLoop()
+{
+    bool quit = false;
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        render.Clear();
+        render.Update();
+        
+        if (input.Quit()) { quit = true; }
+        if (input.Confirm()) { quit = true; }
     }
 }
 
@@ -430,7 +542,9 @@ int main(int argc, char **argv)
         kwanzaCandlesTex.Init("assets/kwanzacandles.png", render);
         titleTex.Init("assets/titleText.png", render);
         titleBackgroundTex.Init("assets/africaBackground.jpg", render);
-        font.Init("assets/SaikyoBlack.png", 18, 18, render); 
+        selectionIconTex.Init("assets/africanmaskScaled.png", render);
+        font.Init("assets/SaikyoBlack.png", 18, 18, render);
+        titleFont.Init("assets/TrioDX.png", 9, 17, render);
         //music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
         //music.Play(true);
         
@@ -443,12 +557,30 @@ int main(int argc, char **argv)
         
         while (!input.Quit())
         {
-            TitleScreenLoop();
+            int menuSelect = TitleScreenLoop();
             if (input.Quit()) { break; }
-            TypingGameLoop();
-            if (input.Quit()) { break; }
-            GameOverLoop();
-            if (input.Quit()) { break; }
+            
+            switch (menuSelect)
+            {
+            case TitleMenu::SELECT_DIRECTIONS:
+            {
+                DirectionsLoop();
+                break;
+            }
+            case TitleMenu::SELECT_PLAY:
+            {
+                TypingGameLoop();
+                GameOverLoop();
+                break;
+            }
+            case TitleMenu::SELECT_ABOUT:
+            {
+                break;
+            }
+            default:
+                throw std::runtime_error("Invalid menu selection");
+                break;
+            }
         }
     }
     catch (std::runtime_error& e)

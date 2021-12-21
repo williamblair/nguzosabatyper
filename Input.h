@@ -15,12 +15,16 @@ public:
     inline bool Confirm() { return mConfirm; }
     inline char CharEntered() { return mCharEntered; }
     inline char BackSpace() { return mBackSpace; }
+    inline bool Up() { return mUp; }
+    inline bool Down() { return mDown; }
 
 private:
     bool mQuit;
     bool mConfirm;
     char mCharEntered;
     bool mBackSpace;
+    bool mUp;
+    bool mDown;
 };
 
 #endif // INPUT_H_INCLUDED
