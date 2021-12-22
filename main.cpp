@@ -7,6 +7,7 @@
 #include <queue>
 #include <cstring>
 #include <cstdint>
+#include <fstream>
 
 #include <Renderer.h>
 #include <Input.h>
@@ -36,6 +37,7 @@ static Texture titleTex;
 static Texture titleBackgroundTex;
 static Texture selectionIconTex;
 static Texture descriptionTex;
+static Texture highScoreBGTex;
 static Music music;
 static Music titleMusic;
 static SoundEffect badEntryEffect;
@@ -52,9 +54,55 @@ static Texture Symbols[NUM_SYMBOLS];
 static std::unordered_map<std::string, Texture*> SymbolsMap;
 static std::vector<std::string> SymbolStrings;
 
+uint64_t playerScore = 0;
+struct HighScore
+{
+    char name[4];
+    uint8_t nameLen;
+    uint64_t score;
+};
+static std::list<HighScore> highScores;
+
 /* Reserved channel for playing repetitive sound effects
  * so they don't use up all of the remaining channels */
 #define EFFECT_PLAY_CHANNEL 0
+
+void LoadHighScores()
+{
+    std::ifstream saveData("assets/savedata.bin", std::ifstream::binary);
+    if (!saveData.is_open()) {
+        std::cerr << __FILE__ << ": " << __LINE__ 
+            << ": failed to open save data for loading" << std::endl;
+        return;
+    }
+    
+    while (true)
+    {
+        HighScore score;
+        saveData.read((char*)&score, sizeof(score));
+        if (!saveData) {
+            break;
+        }
+        std::cout << "Score Name: " << score.name[0]
+            << score.name[1] << score.name[2] << std::endl;
+        std::cout << "Score value: " << score.score << std::endl;
+        highScores.push_back(score);
+    }
+}
+
+void SaveHighScores()
+{
+    std::ofstream saveData("assets/savedata.bin", std::ofstream::binary);
+    if (!saveData.is_open()) {
+        std::cerr << __FILE__ << ": " << __LINE__
+            << ": failed to open save data file" << std::endl;
+        return;
+    }
+    for (auto s = highScores.begin(); s != highScores.end(); ++s)
+    {
+        saveData.write((char*)&(*s), sizeof(*s));
+    }
+}
 
 void InitSymbols()
 {
@@ -171,17 +219,17 @@ void TypingGameLoop()
     uint64_t pieceIdCtr = 0;
     std::list<SymbolPiece> pieces;
     std::queue<uint64_t> pieceRemoveQueue;
-    uint64_t userScore = 0;
     size_t userLife = 100;
     size_t level = 1;
     const int lifeBarWidth = 100;
     const int lifeBarHeight = 10;
-    const int startingHealth = 100;
+    const int startingHealth = 25;
     const int lifeBarX = greenClothTex.GetWidth()-lifeBarWidth-10;
     const int lifeBarY = S_HEIGHT - 50;
     
+    playerScore = 0;
     memset(curUserStr, 0, sizeof(curUserStr));
-    sprintf(userScoreStr, "%llu", userScore);
+    sprintf(userScoreStr, "%llu", playerScore);
     
     LifeBar lifeBar(
         lifeBarX, lifeBarY,
@@ -277,9 +325,9 @@ void TypingGameLoop()
             {
                 if (std::string(curUserStr) == piece->name) {
                     std::cout << "Input matches!" << std::endl;
-                    userScore += piece->name.size();
-                    sprintf(userScoreStr, "%llu", userScore);
-                    std::cout << "New Score: " << userScore << std::endl;
+                    playerScore += piece->name.size();
+                    sprintf(userScoreStr, "%llu", playerScore);
+                    std::cout << "New Score: " << playerScore << std::endl;
                     pieceRemoveQueue.push(piece->id);
                     foundMatch = true;
                     break;
@@ -337,9 +385,13 @@ void TypingGameLoop()
     }
 }
 
-void GameOverLoop()
+void ViewHighScoresLoop()
 {
-    // TODO
+    char scoreStr[50];
+    
+    int charWidth = font.GetCharWidth();
+    int charHeight = font.GetCharHeight();
+    
     bool quit = false;
     while (!quit)
     {
@@ -348,10 +400,247 @@ void GameOverLoop()
         
         render.Clear();
         
+        highScoreBGTex.Draw(render, 0,0);
+        
+        int scoreY = 160;
+        int scoreX = 170;
+        for (size_t i=0; i<highScores.size(); ++i)
+        {
+            /* Draw a score entry */
+            auto hsIter = highScores.begin();
+            for (size_t j=0; j<i; ++j) {
+                ++hsIter;
+            }
+            HighScore& hs = *hsIter;
+            int nameLen = hs.nameLen;
+            sprintf(scoreStr, "%llu", hs.score);
+            for (size_t j=0; j<nameLen; ++j)
+            {
+                char curStr[2];
+                curStr[0] = hs.name[j];
+                curStr[1] = '\0';
+                font.Draw(
+                    render,
+                    scoreX + charWidth*j + 5,
+                    scoreY,
+                    curStr
+                );
+            }
+            font.Draw(
+                render,
+                550, scoreY,
+                scoreStr
+            );
+            
+            scoreY += font.GetCharHeight()+20;
+        }
+        
+        if (input.Quit()) { quit = true; }
+        if (input.Confirm()) { quit = true; }
+        render.Update();
+    }
+}
+
+void EnterHighScoreLoop(size_t scoreInsertIndex)
+{
+    /* Ignore name for now; user will enter */
+    HighScore newScore;
+    newScore.score = playerScore;
+    {
+        auto hsIter = highScores.begin();
+        for (size_t i=0; i<scoreInsertIndex; ++i) {
+            ++hsIter;
+        }
+        highScores.insert(hsIter, newScore);
+    }
+    
+    /* Allow a maximum of 5 scores */
+    if (highScores.size() > 5) {
+        highScores.pop_back();
+    }
+    
+    size_t playerNameIndex = 0;
+    char playerName[4] = {'\0'};
+    
+    int charWidth = font.GetCharWidth();
+    int charHeight = font.GetCharHeight();
+    
+    char scoreStr[50];
+    
+    bool quit = false;
+    
+    std::string message1 = "NEW HIGH SCORE!";
+    std::string message2 = "ENTER YOUR NAME";
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        highScoreBGTex.Draw(render, 0,0);
+        
+        int msgX = (S_WIDTH/2)-(message1.size()*charWidth)/2;
+        int msgY = 250;
+        font.Draw(render, msgX, msgY, message1.c_str());
+        msgX = (S_WIDTH/2)-(message2.size()*charWidth)/2;
+        msgY += charHeight+20;
+        font.Draw(render, msgX, msgY, message2.c_str());
+        
+        if (input.Confirm()) { 
+            std::cout << "Input.confirm, breaking" << std::endl;
+            break;
+        }
         if (input.Quit()) { quit = true; }
         
         render.Update();
     }
+    
+    while (!quit)
+    {
+        float dt = timer.Update();
+        input.Update();
+        
+        highScoreBGTex.Draw(render, 0,0);
+        
+        int scoreY = 160;
+        int scoreX = 170;
+        for (size_t i=0; i<highScores.size(); ++i)
+        {
+            /* Draw the player's score and current entered name */
+            if (i == scoreInsertIndex)
+            {
+                for (size_t j=0; j<playerNameIndex; ++j)
+                {
+                    char curStr[2];
+                    curStr[0] = playerName[j];
+                    curStr[1] = '\0';
+                    font.Draw(
+                        render,
+                        scoreX + charWidth*j + 5,
+                        scoreY,
+                        curStr
+                    );
+                    //std::cout << "cur str: " << curStr << std::endl;
+                }
+                /* Draw input cursor 
+                 * TODO - blink */
+                render.DrawRect(
+                    scoreX + playerNameIndex*charWidth + 5,
+                    scoreY,
+                    charWidth,charHeight,
+                    255,255,255,255
+                );
+                
+                scoreY += font.GetCharHeight()+20;
+                continue;
+            }
+            
+            /* Otherwise draw a score entry */
+            auto hsIter = highScores.begin();
+            for (size_t j=0; j<i; ++j) {
+                ++hsIter;
+            }
+            HighScore& hs = *hsIter;
+            int nameLen = hs.nameLen;
+            sprintf(scoreStr, "%llu", hs.score);
+            for (size_t j=0; j<nameLen; ++j)
+            {
+                char curStr[2];
+                curStr[0] = hs.name[j];
+                curStr[1] = '\0';
+                font.Draw(
+                    render,
+                    scoreX + charWidth*j + 5,
+                    scoreY,
+                    curStr
+                );
+            }
+            font.Draw(
+                render,
+                550, scoreY,
+                scoreStr
+            );
+            
+            scoreY += font.GetCharHeight()+20;
+        }
+        
+        /* User character press */
+        if ((int)input.CharEntered() != 0 &&
+            playerNameIndex < 3)
+        {
+            std::cout << "Adding char entered: " << input.CharEntered()
+                << std::endl;
+            playerName[playerNameIndex++] = input.CharEntered();
+            textEntryEffect.Play(EFFECT_PLAY_CHANNEL);
+        }
+        /* User backspace press */
+        if (input.BackSpace())
+        {
+            if (playerNameIndex > 0) {
+                playerNameIndex--;
+                memset(
+                    &playerName[playerNameIndex],
+                    0,
+                    sizeof(playerName)-playerNameIndex
+                );
+            }
+        }
+        /* User tried to entered their name */
+        if (input.Confirm())
+        {
+            /* Need at least one character for the name */
+            if (playerNameIndex > 0) {
+                auto hsIter = highScores.begin();
+                for (size_t i=0; i<scoreInsertIndex; ++i) {
+                    ++hsIter;
+                }
+                char* saveStr = hsIter->name;
+                for (size_t i=0; i<playerNameIndex; ++i) {
+                    saveStr[i] = playerName[i];
+                }
+                hsIter->nameLen = playerNameIndex;
+                
+                /* Save data to file */
+                SaveHighScores();
+                
+                /* Done with entry loop */
+                quit = true;
+            }
+            else {
+                /* TODO - negative sound effect */
+            }
+        }
+        
+        quit |= input.Quit();
+        
+        render.Update();
+    }
+}
+
+void GameOverLoop()
+{
+    /* Check if player score was a high score */
+    size_t scoreInsertIndex=0;
+    bool newHighScore = false;
+    for (auto hs = highScores.begin(); hs != highScores.end(); ++hs)
+    {
+        /* Found high score */
+        if (hs->score < playerScore) {
+            newHighScore = true;
+            break;
+        }
+        ++scoreInsertIndex;
+    }
+    if (highScores.size() == 0) {
+        newHighScore = true;
+        scoreInsertIndex = 0;
+    }
+    if (newHighScore) {
+        EnterHighScoreLoop(scoreInsertIndex);
+    }
+    
+    /* Once new high score entered (or not), view list of 
+     * high scores */
+    ViewHighScoresLoop();
 }
 
 class TitleMenu
@@ -361,7 +650,8 @@ public:
     constexpr static int SELECT_DIRECTIONS = 0;
     constexpr static int SELECT_PLAY = 1;
     constexpr static int SELECT_ABOUT = 2;
-    constexpr static int SELECT_EXIT = 3;
+    constexpr static int SELECT_HIGHSCORES = 3;
+    constexpr static int SELECT_EXIT = 4;
 
     TitleMenu(int y, Font* font) :
         mY(y),
@@ -399,6 +689,7 @@ public:
             "DIRECTIONS",
             "PLAY",
             "ABOUT",
+            "HIGH SCORES",
             "EXIT"
         };
         for (int i = SELECT_DIRECTIONS; i <= SELECT_EXIT; ++i)
@@ -639,6 +930,7 @@ int main(int argc, char **argv)
         titleBackgroundTex.Init("assets/africaBackground.jpg", render);
         selectionIconTex.Init("assets/africanmaskScaled.png", render);
         descriptionTex.Init("assets/principlesDescription.png", render);
+        highScoreBGTex.Init("assets/highscorebackground.png", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render);
         titleFont.Init("assets/TrioDX.png", 9, 17, render);
         music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
@@ -653,6 +945,7 @@ int main(int argc, char **argv)
         menuSelectEffect.Init("assets/menuselect.wav");
         
         InitSymbols();
+        LoadHighScores();
         
         bool quit = false;
         while (!input.Quit() && !quit)
@@ -681,6 +974,11 @@ int main(int argc, char **argv)
             case TitleMenu::SELECT_ABOUT:
             {
                 AboutLoop();
+                break;
+            }
+            case TitleMenu::SELECT_HIGHSCORES:
+            {
+                ViewHighScoresLoop();
                 break;
             }
             case TitleMenu::SELECT_EXIT:
