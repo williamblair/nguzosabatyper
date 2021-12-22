@@ -213,6 +213,7 @@ void TypingGameLoop()
     char userScoreStr[50];
     std::string scoreText = "SCORE:";
     std::string lifeText = "LIFE:";
+    std::string inputText = "INPUT: ";
     int userStrIndex = 0;
     float pieceSpeed = 20.0f;
     float pieceAddTimer = 6.0f; // seconds until new piece added
@@ -226,6 +227,9 @@ void TypingGameLoop()
     const int startingHealth = 25;
     const int lifeBarX = greenClothTex.GetWidth()-lifeBarWidth-10;
     const int lifeBarY = S_HEIGHT - 50;
+    bool blinkCursorOn = true;
+    float blinkCursorTime = 0.5f;
+    float blinkCursorCounter = 0.0f;
     
     playerScore = 0;
     memset(curUserStr, 0, sizeof(curUserStr));
@@ -270,6 +274,12 @@ void TypingGameLoop()
     {
         render.Clear();
         const float dt = timer.Update();
+        blinkCursorCounter += dt;
+        if (blinkCursorCounter > blinkCursorTime)
+        {
+            blinkCursorCounter = 0.0f;
+            blinkCursorOn = !blinkCursorOn;
+        }
         
         kwanzaPatternBG.Draw(render, 0,0);
         symbolKeyTex.Draw(render, S_WIDTH-symbolKeyTex.GetWidth(), 0);
@@ -296,8 +306,24 @@ void TypingGameLoop()
         /* Cloth background for text */
         greenClothTex.Draw(render, 0, S_HEIGHT - greenClothTex.GetHeight());
         /* Current user text input */
+        font.Draw(render, 10, S_HEIGHT - 20, inputText.c_str());
         if (userStrIndex > 0) {
-            font.Draw(render, 10, S_HEIGHT - 20, curUserStr);
+            font.Draw(
+                render, 
+                10 + inputText.size()*font.GetCharWidth() + 10, 
+                S_HEIGHT - 20, 
+                curUserStr
+            );
+        }
+        /* User text input cursor */
+        if (blinkCursorOn) {
+            render.DrawRect(
+                10 + inputText.size()*font.GetCharWidth() + 10 + 
+                    strlen(curUserStr)*font.GetCharWidth(),
+                S_HEIGHT - 20,
+                font.GetCharWidth(), font.GetCharHeight(),
+                255,255,255,255
+            );
         }
         /* User score */
         font.Draw(render, 10, S_HEIGHT - 50, scoreText.c_str());
@@ -459,6 +485,11 @@ void EnterHighScoreLoop(size_t scoreInsertIndex)
         highScores.pop_back();
     }
     
+    /* For cursor blinking */
+    bool blinkCursorOn = true;
+    float blinkCursorTime = 0.5f;
+    float blinkCursorCounter = 0.0f;
+    
     size_t playerNameIndex = 0;
     char playerName[4] = {'\0'};
     
@@ -499,6 +530,12 @@ void EnterHighScoreLoop(size_t scoreInsertIndex)
         float dt = timer.Update();
         input.Update();
         
+        blinkCursorCounter += dt;
+        if (blinkCursorCounter > blinkCursorTime) {
+            blinkCursorOn = !blinkCursorOn;
+            blinkCursorCounter = 0.0f;
+        }
+        
         highScoreBGTex.Draw(render, 0,0);
         
         int scoreY = 160;
@@ -521,14 +558,15 @@ void EnterHighScoreLoop(size_t scoreInsertIndex)
                     );
                     //std::cout << "cur str: " << curStr << std::endl;
                 }
-                /* Draw input cursor 
-                 * TODO - blink */
-                render.DrawRect(
-                    scoreX + playerNameIndex*charWidth + 5,
-                    scoreY,
-                    charWidth,charHeight,
-                    255,255,255,255
-                );
+                /* Draw input cursor */
+                if (blinkCursorOn) {
+                    render.DrawRect(
+                        scoreX + playerNameIndex*charWidth + 5,
+                        scoreY,
+                        charWidth,charHeight,
+                        255,255,255,255
+                    );
+                }
                 
                 scoreY += font.GetCharHeight()+20;
                 continue;
@@ -630,9 +668,11 @@ void GameOverLoop()
         }
         ++scoreInsertIndex;
     }
-    if (highScores.size() == 0) {
+    /* If we have less than the maximum entries we can enter the
+     * score regardless */
+    if (!newHighScore && highScores.size() < 5 && playerScore > 0) {
         newHighScore = true;
-        scoreInsertIndex = 0;
+        scoreInsertIndex = highScores.size();
     }
     if (newHighScore) {
         EnterHighScoreLoop(scoreInsertIndex);
