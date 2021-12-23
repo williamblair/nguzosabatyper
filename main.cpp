@@ -45,8 +45,10 @@ static SoundEffect goodEntryEffect;
 static SoundEffect textEntryEffect;
 static SoundEffect loseLifeEffect;
 static SoundEffect menuSelectEffect;
+static SoundEffect levelUpEffect;
 static GameTimer timer;
 static Font font;
+static Font fontLarge;
 static Font titleFont;
 
 #define NUM_SYMBOLS 7
@@ -215,13 +217,15 @@ void TypingGameLoop()
     std::string lifeText = "LIFE:";
     std::string inputText = "INPUT: ";
     int userStrIndex = 0;
-    float pieceSpeed = 20.0f;
-    float pieceAddTimer = 6.0f; // seconds until new piece added
+    float pieceSpeed = 25.0f;
+    float pieceAddSpeed = 4.0f; // seconds until new piece added
+    float pieceAddTimer = 0.0f;
     uint64_t pieceIdCtr = 0;
     std::list<SymbolPiece> pieces;
     std::queue<uint64_t> pieceRemoveQueue;
     size_t userLife = 100;
     size_t level = 1;
+    uint64_t nextLevelScore = 25;
     const int lifeBarWidth = 100;
     const int lifeBarHeight = 10;
     const int startingHealth = 25;
@@ -230,6 +234,7 @@ void TypingGameLoop()
     bool blinkCursorOn = true;
     float blinkCursorTime = 0.5f;
     float blinkCursorCounter = 0.0f;
+    float levelUpAnimCounter = 0.0f;
     
     playerScore = 0;
     memset(curUserStr, 0, sizeof(curUserStr));
@@ -269,38 +274,20 @@ void TypingGameLoop()
         }                                                                 \
     }
     
+    bool levelUpAnim = false;
     bool quit = false;
     while (!quit)
     {
         render.Clear();
         const float dt = timer.Update();
-        blinkCursorCounter += dt;
-        if (blinkCursorCounter > blinkCursorTime)
-        {
-            blinkCursorCounter = 0.0f;
-            blinkCursorOn = !blinkCursorOn;
-        }
         
         kwanzaPatternBG.Draw(render, 0,0);
         symbolKeyTex.Draw(render, S_WIDTH-symbolKeyTex.GetWidth(), 0);
         
+        /* Draw pieces */
         for (auto piece = pieces.begin(); piece != pieces.end(); ++piece)
         {
             piece->symbolTex->Draw(render, (int)piece->x, (int)piece->y);
-            
-            piece->y += pieceSpeed * dt;
-            // TODO - figure out value besides 100
-            if (piece->y + piece->symbolTex->GetHeight() >= S_HEIGHT - 100) {
-                std::cout << "Add piece to remove queue w id: " << piece->id << std::endl;
-                pieceRemoveQueue.push(piece->id);
-                loseLifeEffect.Play();
-                
-                /* Returns true if health reached zero... */
-                if (lifeBar.AddHealth(-piece->name.size())) {
-                    std::cout << "Ran out of health; game over" << std::endl;
-                    quit = true;
-                }
-            }
         }
         
         /* Cloth background for text */
@@ -342,6 +329,67 @@ void TypingGameLoop()
         );
         lifeBar.Draw(render);
         
+        if (levelUpAnim) {
+            
+            /* Update anim */
+            levelUpAnimCounter -= dt;
+            if (levelUpAnimCounter <= 0.0f) {
+                levelUpAnim = false;
+            }
+
+            char str1[50];
+            char str2[50];
+            sprintf(str1, "LEVEL UP: %lu", level);
+            sprintf(str2, "NEXT LEVEL: %llu", nextLevelScore);
+            
+            /* text background shadow */
+            render.DrawRect(
+                5,
+                (S_HEIGHT/2) - (fontLarge.GetCharHeight()/2) - 110,
+                S_WIDTH-symbolKeyTex.GetWidth(),
+                fontLarge.GetCharHeight()*3+20,
+                0,0,0,255
+            );
+                
+            /* Show level up info */
+            int msgX = 10;
+            int msgY = (S_HEIGHT/2) - (fontLarge.GetCharHeight()/2) - 100;
+            fontLarge.Draw(render, msgX, msgY, str1);
+            
+            msgX = 10;
+            msgY += fontLarge.GetCharHeight() + 20;
+            fontLarge.Draw(render, msgX, msgY, str2);
+            
+            /* Don't update stuff while anim paused */
+            quit |= input.Quit();
+            input.Update();
+            render.Update();
+            continue;
+        }
+        
+        for (auto piece = pieces.begin(); piece != pieces.end(); ++piece)
+        {
+            piece->y += pieceSpeed * dt;
+            if (piece->y + piece->symbolTex->GetHeight() >= S_HEIGHT - greenClothTex.GetHeight()) {
+                std::cout << "Add piece to remove queue w id: " << piece->id << std::endl;
+                pieceRemoveQueue.push(piece->id);
+                loseLifeEffect.Play();
+                
+                /* Returns true if health reached zero... */
+                if (lifeBar.AddHealth(-piece->name.size())) {
+                    std::cout << "Ran out of health; game over" << std::endl;
+                    quit = true;
+                }
+            }
+        }
+        
+        blinkCursorCounter += dt;
+        if (blinkCursorCounter > blinkCursorTime)
+        {
+            blinkCursorCounter = 0.0f;
+            blinkCursorOn = !blinkCursorOn;
+        }
+        
         /* User enter press */
         if (input.Confirm()) {
             curUserStr[userStrIndex] = '\0';
@@ -356,6 +404,31 @@ void TypingGameLoop()
                     std::cout << "New Score: " << playerScore << std::endl;
                     pieceRemoveQueue.push(piece->id);
                     foundMatch = true;
+                    
+                    if (playerScore >= nextLevelScore) {
+                        levelUpEffect.Play();
+                        levelUpAnim = true;
+                        levelUpAnimCounter = 3.0f;
+                        nextLevelScore *= 2;
+                        ++level;
+                        pieceSpeed *= 1.1f;
+                        pieceAddSpeed *= 0.85f;
+                        std::cout << "Next level: " << level << std::endl;
+                        
+                        /* Remove all current pieces as a reward */
+                        for (auto rmPiece = pieces.begin();
+                            rmPiece != pieces.end();
+                            ++rmPiece)
+                        {
+                            /* The above piece has already been added
+                             * to the remove queue*/
+                            if (rmPiece != piece)
+                            {
+                                pieceRemoveQueue.push(rmPiece->id);
+                            }
+                        }
+                    }
+                    
                     break;
                 }
             }
@@ -380,6 +453,7 @@ void TypingGameLoop()
         /* User backspace press */
         if (input.BackSpace())
         {
+            // TODO - sound effect
             if (userStrIndex > 0) {
                 userStrIndex--;
                 memset(
@@ -398,11 +472,13 @@ void TypingGameLoop()
             pieceRemoveQueue.pop();
         }
         
-        pieceAddTimer -= dt;
-        if (pieceAddTimer <= 0.0f) {
+        pieceAddTimer += dt;
+        if (pieceAddTimer >= pieceAddSpeed) {
+            while (pieceAddTimer > pieceAddSpeed) {
+                pieceAddTimer -= pieceAddSpeed;
+            }
             AddNewPiece();
             std::cout << "Added new piece" << std::endl;
-            pieceAddTimer = 6.0f;
         }
         
         quit |= input.Quit();
@@ -767,7 +843,8 @@ int TitleScreenLoop()
         "USE KEYBOARD UP, DOWN TO NAVIGATE MENU. PRESS ENTER TO SELECT.";
     static const int jamTextX = 10;
     static const int jamTextY = 580;
-    static const int authorTextX = 300;
+    static const int authorTextX =
+        S_WIDTH - strlen(authorText)*titleFont.GetCharWidth() - 20;
     static const int authorTextY = 580;
     #define NUM_TITLE_RECTS 9
     static SDL_Rect titleClipRects[NUM_TITLE_RECTS];
@@ -972,6 +1049,7 @@ int main(int argc, char **argv)
         descriptionTex.Init("assets/principlesDescription.png", render);
         highScoreBGTex.Init("assets/highscorebackground.png", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render);
+        fontLarge.Init("assets/SaikyoBlackLarge.png", 36, 36, render);
         titleFont.Init("assets/TrioDX.png", 9, 17, render);
         music.Init("assets/475150__kevp888__190621-0386-fr-africandrums.wav");
         titleMusic.Init("assets/135811__reinsamba__110611-005-chora-harp-from-gambia.wav");
@@ -983,6 +1061,7 @@ int main(int argc, char **argv)
         textEntryEffect.Init("assets/congahit.wav");
         loseLifeEffect.Init("assets/djembedrum.wav");
         menuSelectEffect.Init("assets/menuselect.wav");
+        levelUpEffect.Init("assets/1up2.wav");
         
         InitSymbols();
         LoadHighScores();
