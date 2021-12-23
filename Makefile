@@ -1,6 +1,7 @@
 CC = mingw32-g++
 TARGET = main
-CFLAGS = -g 
+#CFLAGS = -g
+CFLAGS = -O3 -mwindows
 LIBDIRS = 
 INCDIRS = -ID:/MinGW/include -I.
 LIBS = -lSDL2 -lSDL2_image -lSDL2_mixer

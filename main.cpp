@@ -38,6 +38,8 @@ static Texture titleBackgroundTex;
 static Texture selectionIconTex;
 static Texture descriptionTex;
 static Texture highScoreBGTex;
+static Texture upArrowTex;
+static Texture downArrowTex;
 static Music music;
 static Music titleMusic;
 static SoundEffect badEntryEffect;
@@ -46,6 +48,7 @@ static SoundEffect textEntryEffect;
 static SoundEffect loseLifeEffect;
 static SoundEffect menuSelectEffect;
 static SoundEffect levelUpEffect;
+static SoundEffect backspaceEffect;
 static GameTimer timer;
 static Font font;
 static Font fontLarge;
@@ -217,7 +220,8 @@ void TypingGameLoop()
     std::string lifeText = "LIFE:";
     std::string inputText = "INPUT: ";
     int userStrIndex = 0;
-    float pieceSpeed = 25.0f;
+    float pieceSpeed = 25.0f/4.0f;
+    float pieceSpeedNumerator = 12.0f; // max string length
     float pieceAddSpeed = 4.0f; // seconds until new piece added
     float pieceAddTimer = 0.0f;
     uint64_t pieceIdCtr = 0;
@@ -228,20 +232,24 @@ void TypingGameLoop()
     uint64_t nextLevelScore = 25;
     const int lifeBarWidth = 100;
     const int lifeBarHeight = 10;
-    const int startingHealth = 25;
+    const int startingHealth = 100;
     const int lifeBarX = greenClothTex.GetWidth()-lifeBarWidth-10;
-    const int lifeBarY = S_HEIGHT - 50;
+    const int lifeBarY = S_HEIGHT - 20;
     bool blinkCursorOn = true;
     float blinkCursorTime = 0.5f;
     float blinkCursorCounter = 0.0f;
     float levelUpAnimCounter = 0.0f;
+    char timeStr[20];
+    float timeCtr = 0.0f;
+    
+    sprintf(timeStr, "TIME: %.1f", timeCtr);
     
     playerScore = 0;
     memset(curUserStr, 0, sizeof(curUserStr));
     sprintf(userScoreStr, "%llu", playerScore);
     
     LifeBar lifeBar(
-        lifeBarX, lifeBarY,
+        lifeBarX, lifeBarY+5,
         lifeBarWidth, lifeBarHeight,
         startingHealth
     );
@@ -313,11 +321,11 @@ void TypingGameLoop()
             );
         }
         /* User score */
-        font.Draw(render, 10, S_HEIGHT - 50, scoreText.c_str());
+        font.Draw(render, 10, S_HEIGHT - 60, scoreText.c_str());
         font.Draw(
             render,
-            10 + (scoreText.size()+2)*font.GetCharWidth(),
-            S_HEIGHT - 50,
+            (scoreText.size()+2)*font.GetCharWidth(),
+            S_HEIGHT - 60,
             userScoreStr
         );
         /* Lifebar */
@@ -328,6 +336,15 @@ void TypingGameLoop()
             lifeText.c_str()
         );
         lifeBar.Draw(render);
+        
+        /* Time */
+        font.Draw(
+            render,
+            S_WIDTH-symbolKeyTex.GetWidth() - 
+                strlen(timeStr)*font.GetCharWidth(),
+            S_HEIGHT - 60,
+            timeStr
+        );
         
         if (levelUpAnim) {
             
@@ -367,9 +384,14 @@ void TypingGameLoop()
             continue;
         }
         
+        timeCtr += dt;
+        sprintf(timeStr, "TIME: %.1f", timeCtr);
+        
         for (auto piece = pieces.begin(); piece != pieces.end(); ++piece)
         {
-            piece->y += pieceSpeed * dt;
+            /* Make longer named pieces move slower than shorter named */
+            piece->y += (pieceSpeedNumerator / float(piece->name.size())) * 
+                pieceSpeed * dt;
             if (piece->y + piece->symbolTex->GetHeight() >= S_HEIGHT - greenClothTex.GetHeight()) {
                 std::cout << "Add piece to remove queue w id: " << piece->id << std::endl;
                 pieceRemoveQueue.push(piece->id);
@@ -453,7 +475,7 @@ void TypingGameLoop()
         /* User backspace press */
         if (input.BackSpace())
         {
-            // TODO - sound effect
+            backspaceEffect.Play();
             if (userStrIndex > 0) {
                 userStrIndex--;
                 memset(
@@ -489,10 +511,14 @@ void TypingGameLoop()
 
 void ViewHighScoresLoop()
 {
+    static const char* directionStr = "PRESS ENTER TO RETURN.";
     char scoreStr[50];
     
     int charWidth = font.GetCharWidth();
     int charHeight = font.GetCharHeight();
+    
+    float directionX = S_WIDTH-(strlen(directionStr)*titleFont.GetCharWidth());
+    float directionSpeed = 40.0f;
     
     bool quit = false;
     while (!quit)
@@ -503,6 +529,7 @@ void ViewHighScoresLoop()
         render.Clear();
         
         highScoreBGTex.Draw(render, 0,0);
+        titleFont.Draw(render, (int)directionX, 10, directionStr);
         
         int scoreY = 160;
         int scoreX = 170;
@@ -535,6 +562,13 @@ void ViewHighScoresLoop()
             );
             
             scoreY += font.GetCharHeight()+20;
+        }
+        
+        directionX -= directionSpeed * dt;
+        if (directionX <=
+            -((int)strlen(directionStr)*(int)titleFont.GetCharWidth()))
+        {
+            directionX = S_WIDTH - strlen(directionStr)*titleFont.GetCharWidth();
         }
         
         if (input.Quit()) { quit = true; }
@@ -844,7 +878,7 @@ int TitleScreenLoop()
     static const int jamTextX = 10;
     static const int jamTextY = 580;
     static const int authorTextX =
-        S_WIDTH - strlen(authorText)*titleFont.GetCharWidth() - 20;
+        S_WIDTH - strlen(authorText)*titleFont.GetCharWidth() - 10;
     static const int authorTextY = 580;
     #define NUM_TITLE_RECTS 9
     static SDL_Rect titleClipRects[NUM_TITLE_RECTS];
@@ -993,6 +1027,8 @@ void DirectionsLoop()
 
 void AboutLoop()
 {
+    static std::string directionStr = 
+        "USE THE ARROW KEYS TO SCROLL. PRESS ENTER TO RETURN.";
     bool quit = false;
     int texWidth = descriptionTex.GetWidth();
     int totalTexHeight = descriptionTex.GetHeight();
@@ -1000,7 +1036,10 @@ void AboutLoop()
     int texX = 25;
     int texY = 50;
     float texScrollY = 0;
-    float scrollSpeed = 50.0f;
+    float scrollSpeed = 100.0f;
+    float directionSpeed = 40.0f;
+    float directionX = 
+        S_WIDTH - directionStr.size()*titleFont.GetCharWidth();
     while (!quit)
     {
         float dt = timer.Update();
@@ -1017,12 +1056,33 @@ void AboutLoop()
                 texScrollY = totalTexHeight - texHeight;
             }
         }
+        directionX -= directionSpeed * dt;
+        if (directionX <= 
+            -((int)directionStr.size()*(int)titleFont.GetCharWidth()))
+        {
+            directionX = S_WIDTH;
+        }
         
         render.Clear();
         
         titleBackgroundTex.Draw(render, 0,0);
         descriptionTex.SetUVWH(0,(int)texScrollY,texWidth,texHeight);
         descriptionTex.Draw(render, texX, texY);
+        if (texScrollY > 0.005f) {
+            upArrowTex.Draw(
+                render,
+                S_WIDTH - upArrowTex.GetWidth() - 30,
+                80
+            );
+        }
+        if (texScrollY < totalTexHeight - texHeight) {
+            downArrowTex.Draw(
+                render,
+                S_WIDTH - downArrowTex.GetWidth() - 30,
+                S_HEIGHT - downArrowTex.GetHeight() - 80
+            );
+        }
+        titleFont.Draw(render, (int)directionX, 5, directionStr.c_str());
         
         render.Update();
         
@@ -1048,6 +1108,8 @@ int main(int argc, char **argv)
         selectionIconTex.Init("assets/africanmaskScaled.png", render);
         descriptionTex.Init("assets/principlesDescription.png", render);
         highScoreBGTex.Init("assets/highscorebackground.png", render);
+        upArrowTex.Init("assets/arrowUp.png", render);
+        downArrowTex.Init("assets/arrowDown.png", render);
         font.Init("assets/SaikyoBlack.png", 18, 18, render);
         fontLarge.Init("assets/SaikyoBlackLarge.png", 36, 36, render);
         titleFont.Init("assets/TrioDX.png", 9, 17, render);
@@ -1062,6 +1124,7 @@ int main(int argc, char **argv)
         loseLifeEffect.Init("assets/djembedrum.wav");
         menuSelectEffect.Init("assets/menuselect.wav");
         levelUpEffect.Init("assets/1up2.wav");
+        backspaceEffect.Init("assets/backspace.wav");
         
         InitSymbols();
         LoadHighScores();
